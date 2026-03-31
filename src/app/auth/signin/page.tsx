@@ -39,9 +39,6 @@ async function SignInContent({
           <h1 className="text-3xl font-bold text-white tracking-tight">
             Course Management
           </h1>
-          <p className="mt-2 text-gray-400 text-sm">
-            BITS Pilani — Goa Campus
-          </p>
         </div>
 
         {/* Sign In Card */}

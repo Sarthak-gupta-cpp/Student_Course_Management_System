@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ScheduleTimetable } from "@/components/schedule-timetable";
 import { Loader2, Plus, Trash2, CalendarX2, AlertCircle, CheckCircle2, Calendar, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,36 @@ export default function RegistrationPage() {
   const [data, setData] = useState<{ courses: any[], systemSettings: any, semester: any } | null>(null);
   const [cart, setCart] = useState<any[]>([]); // Courses to preview in schedule before enrolling
   const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [isEnrollingAll, setIsEnrollingAll] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+
+  // Calculate generic clashes to disable enroll button
+  const hasClashes = useMemo(() => {
+    for (let i = 0; i < cart.length; i++) {
+       for (let j = i + 1; j < cart.length; j++) {
+          const valid1 = Array.isArray(cart[i].schedule) ? cart[i].schedule : [];
+          const valid2 = Array.isArray(cart[j].schedule) ? cart[j].schedule : [];
+          for (const s1 of valid1) {
+             for (const s2 of valid2) {
+                if (s1.day === s2.day) {
+                   const [h1, m1] = s1.start.split(":").map(Number);
+                   const [he1, me1] = s1.end.split(":").map(Number);
+                   const [h2, m2] = s2.start.split(":").map(Number);
+                   const [he2, me2] = s2.end.split(":").map(Number);
+                   const start1 = h1 * 60 + m1;
+                   const end1 = he1 * 60 + me1;
+                   const start2 = h2 * 60 + m2;
+                   const end2 = he2 * 60 + me2;
+                   if (Math.max(start1, start2) < Math.min(end1, end2)) {
+                       return true;
+                   }
+                }
+             }
+          }
+       }
+    }
+    return false;
+  }, [cart]);
 
   useEffect(() => {
     fetchCourses();
@@ -67,30 +96,34 @@ export default function RegistrationPage() {
     setMessage(null);
   };
 
-  const handleEnroll = async (course: any) => {
-    setEnrolling(course.offering_id);
+  const handleEnrollAll = async () => {
+    setIsEnrollingAll(true);
     setMessage(null);
+    const unEnrolled = cart.filter(c => c.enrollment_status !== 'ENROLLED');
+    let successCount = 0;
+    let failCount = 0;
 
-    try {
-      const res = await fetch("/api/student/enroll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ offeringId: course.offering_id })
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        setMessage({ type: 'error', text: json.error || 'Enrollment failed' });
-      } else {
-        setMessage({ type: 'success', text: `Successfully enrolled in ${course.course_id}!` });
-        await fetchCourses(); // Refresh list to get accurate db state
+    for (const course of unEnrolled) {
+      try {
+        const res = await fetch("/api/student/enroll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ offeringId: course.offering_id })
+        });
+        if (res.ok) successCount++;
+        else failCount++;
+      } catch (err) {
+        failCount++;
       }
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Network error occurred' });
-    } finally {
-      setEnrolling(null);
     }
+    
+    if (failCount > 0) {
+      setMessage({ type: 'error', text: `Enrolled in ${successCount} courses. ${failCount} failed (clashes or full).` });
+    } else {
+      setMessage({ type: 'success', text: `Successfully enrolled in all ${successCount} courses!` });
+    }
+    await fetchCourses();
+    setIsEnrollingAll(false);
   };
 
   const handleDrop = async (course: any) => {
@@ -238,31 +271,22 @@ export default function RegistrationPage() {
                           "flex-1 text-xs font-medium px-3 py-2 rounded-lg transition-colors border",
                           isInCart 
                             ? "bg-secondary border-transparent text-foreground hover:bg-secondary/80"
-                            : "bg-transparent border-input hover:bg-secondary"
+                            : "bg-primary border-transparent text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/20"
                         )}
                       >
-                        {isInCart ? "Remove from Cart" : "Preview in Cart"}
+                        {isInCart ? "Remove from Cart" : "Add to Cart"}
                       </button>
                     )}
 
                     {/* Quick Call to Action actions */}
-                    {isEnrolled ? (
+                    {isEnrolled && (
                       <button
                         onClick={() => handleDrop(course)}
                         disabled={!isDropOpen || enrolling === course.offering_id}
-                        className="flex-[2] flex items-center justify-center gap-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-semibold px-3 py-2 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 flex items-center justify-center gap-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-semibold px-3 py-2 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                       >
                         {enrolling === course.offering_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         Drop
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleEnroll(course)}
-                        disabled={!isRegOpen || isFull || enrolling === course.offering_id}
-                        className="flex-[2] flex items-center justify-center gap-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 text-xs font-semibold px-3 py-2 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {enrolling === course.offering_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                        {isFull ? "Full" : "Enroll Directly"}
                       </button>
                     )}
                   </div>
@@ -299,10 +323,22 @@ export default function RegistrationPage() {
             {/* Cart summary action */}
             {cart.filter(c => c.enrollment_status !== 'ENROLLED').length > 0 && (
               <div className="mt-6 p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
-                <span className="text-sm font-medium">Ready to confirm un-enrolled courses?</span>
-                <p className="text-xs text-muted-foreground">
-                  (Enrollment must be done per course on the left to handle precise transactions)
-                </p>
+                <div>
+                  <span className="text-sm font-medium">Ready to confirm un-enrolled courses?</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {hasClashes 
+                      ? <span className="text-red-500 font-bold flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3"/>Please resolve schedule clashes before enrolling.</span>
+                      : "Review your schedule before confirming."}
+                  </p>
+                </div>
+                <button
+                  onClick={handleEnrollAll}
+                  disabled={!isRegOpen || isEnrollingAll || hasClashes}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 py-2 rounded-lg text-sm flex items-center gap-2 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isEnrollingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  {hasClashes ? "Resolve Clashes First" : "Enroll All"}
+                </button>
               </div>
             )}
           </div>

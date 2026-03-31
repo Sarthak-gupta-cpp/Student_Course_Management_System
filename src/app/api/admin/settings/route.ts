@@ -32,20 +32,29 @@ export async function PUT(req: Request) {
   const body = await req.json();
   const { registration_start, registration_end, drop_start, drop_end } = body;
 
+  const formatDateTime = (val: any) => {
+    if (!val) return null;
+    try {
+      return new Date(val).toISOString().slice(0, 19).replace("T", " ");
+    } catch {
+      return null;
+    }
+  };
+
   try {
     await pool.query(
       `UPDATE system_settings 
        SET 
-         registration_start = IF(? = '', NULL, ?),
-         registration_end = IF(? = '', NULL, ?),
-         drop_start = IF(? = '', NULL, ?),
-         drop_end = IF(? = '', NULL, ?)
+         registration_start = ?,
+         registration_end = ?,
+         drop_start = ?,
+         drop_end = ?
        WHERE id = 1`,
       [
-        registration_start || null, registration_start || null,
-        registration_end || null, registration_end || null,
-        drop_start || null, drop_start || null,
-        drop_end || null, drop_end || null
+        formatDateTime(registration_start),
+        formatDateTime(registration_end),
+        formatDateTime(drop_start),
+        formatDateTime(drop_end)
       ]
     );
 

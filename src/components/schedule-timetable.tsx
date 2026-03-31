@@ -46,6 +46,91 @@ export function ScheduleTimetable({ courses, className }: { courses: Course[], c
     return labels;
   }, []);
 
+  const processedSlots = useMemo(() => {
+    const rawSlots: {slot: any, course: any, colorClass: string}[] = [];
+    const colors = [
+      "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400",
+      "bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-400",
+      "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400",
+      "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-400",
+      "bg-pink-500/10 border-pink-500/30 text-pink-700 dark:text-pink-400"
+    ];
+    
+    courses.forEach((course, courseIdx) => {
+       const validSchedule = Array.isArray(course.schedule) ? course.schedule : [];
+       validSchedule.forEach(slot => {
+         rawSlots.push({ slot, course, colorClass: colors[courseIdx % colors.length] });
+       });
+    });
+
+    const mergedSlots: any[] = [];
+    const byDay: Record<string, typeof rawSlots> = {};
+    
+    rawSlots.forEach(rs => {
+      byDay[rs.slot.day] = byDay[rs.slot.day] || [];
+      byDay[rs.slot.day].push(rs);
+    });
+
+    for (const day of Object.keys(byDay)) {
+       const daySlots = byDay[day];
+       daySlots.sort((a, b) => {
+          const startA = a.slot.start.localeCompare(b.slot.start);
+          if (startA !== 0) return startA;
+          return a.slot.end.localeCompare(b.slot.end);
+       });
+
+       let currentGroup = [daySlots[0]];
+       
+       for (let i = 1; i < daySlots.length; i++) {
+          const current = daySlots[i];
+          
+          const groupEnd = Math.max(...currentGroup.map(g => {
+            const [h, m] = g.slot.end.split(":").map(Number); 
+            return h * 60 + m;
+          }));
+          
+          const [ch, cm] = current.slot.start.split(":").map(Number);
+          const currentStart = ch * 60 + cm;
+
+          if (currentStart < groupEnd) {
+             currentGroup.push(current);
+          } else {
+             mergedSlots.push({ isClashing: currentGroup.length > 1, group: currentGroup });
+             currentGroup = [current];
+          }
+       }
+       if (currentGroup.length > 0) {
+          mergedSlots.push({ isClashing: currentGroup.length > 1, group: currentGroup });
+       }
+    }
+
+    return mergedSlots.map(merged => {
+       if (!merged.isClashing) {
+          return {
+             isClashing: false,
+             slot: merged.group[0].slot,
+             course: merged.group[0].course,
+             colorClass: merged.group[0].colorClass
+          };
+       } else {
+          const allNames = Array.from(new Set(merged.group.map((g: any) => g.course.course_id))).join(" & ");
+          let minStartStr = "23:59";
+          let maxEndStr = "00:00";
+          merged.group.forEach((g: any) => {
+             if (g.slot.start.localeCompare(minStartStr) < 0) minStartStr = g.slot.start;
+             if (g.slot.end.localeCompare(maxEndStr) > 0) maxEndStr = g.slot.end;
+          });
+
+          return {
+             isClashing: true,
+             slot: { day: merged.group[0].slot.day, start: minStartStr, end: maxEndStr },
+             course: { course_id: "CLASH", course_name: allNames },
+             colorClass: ""
+          };
+       }
+    });
+  }, [courses]);
+
   const totalRows = (END_HOUR - START_HOUR + 1) * 2;
 
   return (
@@ -88,52 +173,42 @@ export function ScheduleTimetable({ courses, className }: { courses: Course[], c
         ))}
 
         {/* Actual Course Blocks */}
-        {courses.map((course, courseIdx) => {
-          // Colors sequence for differentiation
-          const colors = [
-            "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400",
-            "bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-400",
-            "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400",
-            "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-400",
-            "bg-pink-500/10 border-pink-500/30 text-pink-700 dark:text-pink-400"
-          ];
-          const colorClass = colors[courseIdx % colors.length];
+        {processedSlots.map((item, idx) => {
+          const { slot, course, isClashing, colorClass } = item;
+          const rowStart = getGridRow(slot.start);
+          const rowEnd = getGridRow(slot.end);
+          const col = getGridCol(slot.day);
 
-          // Safely map schedule if available (for preview "cart" rendering before saving)
-          const validSchedule = Array.isArray(course.schedule) ? course.schedule : [];
+          if (col < 2) return null; // Ignore weekends or invalid days for now safely
 
-          return validSchedule.map((slot, slotIdx) => {
-            const rowStart = getGridRow(slot.start);
-            const rowEnd = getGridRow(slot.end);
-            const col = getGridCol(slot.day);
+          const clashStyle = isClashing 
+            ? "bg-red-500/20 border-red-500/60 text-red-700 dark:text-red-400 dark:bg-red-500/20 ring-2 ring-red-500/50 shadow-lg shadow-red-500/20 font-bold z-20" 
+            : colorClass;
 
-            if (col < 2) return null; // Ignore weekends or invalid days for now safely
-
-            return (
-              <div 
-                key={`${course.course_id}-${slotIdx}`}
-                className={cn(
-                  "m-0.5 rounded-lg border p-2 flex flex-col gap-1 overflow-hidden transition-all hover:shadow-md hover:z-10 animate-in fade-in zoom-in duration-300",
-                  colorClass
-                )}
-                style={{ 
-                  gridRow: `${rowStart} / ${rowEnd}`,
-                  gridColumn: col
-                }}
-              >
-                <span className="font-bold text-xs truncate" title={course.course_id}>
-                  {course.course_id}
-                </span>
-                <span className="text-[10px] font-medium leading-tight truncate opacity-90" title={course.course_name}>
-                  {course.course_name}
-                </span>
-                <span className="mt-auto text-[10px] opacity-75 hidden sm:inline-flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {slot.start.slice(0,5)} - {slot.end.slice(0,5)}
-                </span>
-              </div>
-            );
-          });
+          return (
+            <div 
+              key={`slot-${idx}`}
+              className={cn(
+                "m-0.5 rounded-lg border p-2 flex flex-col gap-1 overflow-hidden transition-all hover:shadow-md hover:z-30 animate-in fade-in zoom-in duration-300",
+                clashStyle
+              )}
+              style={{ 
+                gridRow: `${rowStart} / ${rowEnd}`,
+                gridColumn: col
+              }}
+            >
+              <span className="font-bold text-[10px] md:text-xs truncate" title={course.course_id}>
+                {course.course_id}
+              </span>
+              <span className="text-[9px] md:text-[10px] font-medium leading-tight truncate opacity-90" title={course.course_name}>
+                {course.course_name}
+              </span>
+              <span className="mt-auto text-[9px] md:text-[10px] opacity-75 hidden sm:inline-flex items-center gap-1">
+                <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                {slot.start.slice(0,5)} - {slot.end.slice(0,5)}
+              </span>
+            </div>
+          );
         })}
       </div>
     </div>

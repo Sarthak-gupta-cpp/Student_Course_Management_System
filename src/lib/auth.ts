@@ -16,7 +16,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   callbacks: {
     ...authConfig.callbacks,
-    // Domain restriction: only allow @goa.bits-pilani.ac.in emails
     async signIn({ user, account, profile }) {
       const rawEmail = user.email || profile?.email;
       const email = rawEmail?.toLowerCase();
