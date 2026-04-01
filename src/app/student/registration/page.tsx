@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ScheduleTimetable } from "@/components/schedule-timetable";
-import { Loader2, Plus, Trash2, CalendarX2, AlertCircle, CheckCircle2, Calendar, MapPin } from "lucide-react";
+import { Loader2, Plus, Trash2, CalendarX2, AlertCircle, CheckCircle2, Calendar, MapPin, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function RegistrationPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{ courses: any[], systemSettings: any, semester: any } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<any[]>([]); // Courses to preview in schedule before enrolling
   const [enrolling, setEnrolling] = useState<string | null>(null);
   const [isEnrollingAll, setIsEnrollingAll] = useState(false);
@@ -226,9 +227,26 @@ export default function RegistrationPage() {
               {data.courses.length} / {cart.length} in cart
             </span>
           </div>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input 
+              type="text" 
+              placeholder="Search courses by ID, name..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-card border border-border rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-sm"
+            />
+          </div>
           
           <div className="space-y-3 max-h-[800px] overflow-y-auto pr-2 scrollbar-thin">
-            {data.courses.map(course => {
+            {data.courses
+              .filter(course => 
+                course.course_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                course.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                course.teacher_name.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+              .map(course => {
               const isEnrolled = course.enrollment_status === 'ENROLLED';
               const isInCart = cart.some(c => c.offering_id === course.offering_id);
               const isFull = course.current_enrolled >= course.max_capacity;

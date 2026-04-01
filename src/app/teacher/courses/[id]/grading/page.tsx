@@ -26,7 +26,7 @@ export default function TeacherGrading({ params }: { params: Promise<{ id: strin
           let locked = false;
           json.students.forEach((s: any) => {
             initialGrades[s.enrollment_id] = s.grade || "";
-            if (s.grade_submitted_to_admin) locked = true;
+            if (s.is_grade_released) locked = true;
           });
           setGrades(initialGrades);
           setIsLocked(locked);
@@ -42,7 +42,7 @@ export default function TeacherGrading({ params }: { params: Promise<{ id: strin
 
   const handleSave = async (action: 'DRAFT' | 'SUBMIT') => {
     if (action === 'SUBMIT') {
-      if (!confirm("Are you sure? Once submitted to Admin, you cannot edit these grades anymore. Ensure all students have a grade.")) return;
+      if (!confirm("Are you sure you want to submit these grades to the Admin? You can still edit them until the Admin releases them to students.")) return;
     }
 
     setSaving(true);
@@ -61,7 +61,6 @@ export default function TeacherGrading({ params }: { params: Promise<{ id: strin
         setMessage({ type: 'error', text: json.error || 'Failed to save grades' });
       } else {
         setMessage({ type: 'success', text: json.message });
-        if (action === 'SUBMIT') setIsLocked(true);
       }
     } catch (err) {
       setMessage({ type: 'error', text: 'Network error occurred' });
@@ -123,9 +122,9 @@ export default function TeacherGrading({ params }: { params: Promise<{ id: strin
         )}
 
         {isLocked && (
-          <div className="p-4 rounded-xl mb-6 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm font-medium flex items-center gap-3">
+          <div className="p-4 rounded-xl mb-6 bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-sm font-medium flex items-center gap-3">
              <AlertTriangle className="w-5 h-5" />
-             Grades have been submitted to the Administration and are locked from further editing.
+             Grades have been released to students by the Administration and are permanently locked.
           </div>
         )}
         

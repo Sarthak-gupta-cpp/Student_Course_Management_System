@@ -88,13 +88,13 @@ export async function POST(
 
     // Verify no grades are already submitted and locked for this course
     const [locked] = await connection.query<RowDataPacket[]>(
-      "SELECT 1 FROM enrollments WHERE offering_id = ? AND grade_submitted_to_admin = TRUE LIMIT 1",
+      "SELECT 1 FROM enrollments WHERE offering_id = ? AND is_grade_released = TRUE LIMIT 1",
       [offeringId]
     );
 
     if (locked.length > 0) {
       await connection.rollback();
-      return NextResponse.json({ error: "Grades have already been submitted and are locked for admin review" }, { status: 403 });
+      return NextResponse.json({ error: "Grades have already been released to students and cannot be modified" }, { status: 403 });
     }
 
     for (const [enrollmentId, grade] of Object.entries(grades)) {
