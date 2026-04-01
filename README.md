@@ -1,5 +1,6 @@
 # 🎓 Student Course Management System
 
+
 A modern, full-stack web application built to streamline the management of student records, course offerings, and academic data. Built with Next.js and
 TypeScript, this system provides a robust interface for handling educational institution operations.
 
