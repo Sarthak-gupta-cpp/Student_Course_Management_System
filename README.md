@@ -26,7 +26,7 @@ TypeScript, this system provides a robust interface for handling educational ins
 
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 Ensure you have [Node.js](https://nodejs.org/) installed on your machine.
 
