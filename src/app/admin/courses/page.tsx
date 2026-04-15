@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, BookOpenText, Plus, Users, Calendar, MapPin, Database } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Loader2, BookOpenText, Plus, Users, Calendar, MapPin, Database, ChevronDown, Check, Search } from "lucide-react";
 
 // Helper components for tabs
 function TabButton({ active, onClick, icon: Icon, label }: any) {
@@ -17,6 +17,65 @@ function TabButton({ active, onClick, icon: Icon, label }: any) {
       <Icon className="w-4 h-4" />
       {label}
     </button>
+  );
+}
+
+function SearchableDropdown({ options, value, onChange, placeholder }: any) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filtered = options.filter((o: any) => o.label.toLowerCase().includes(search.toLowerCase()));
+  const selectedObj = options.find((o: any) => String(o.value) === String(value));
+
+  return (
+    <div className="relative" ref={ref}>
+      <div 
+        className="w-full border bg-background text-foreground rounded-lg p-2 text-sm flex justify-between items-center cursor-pointer"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className={selectedObj ? "" : "text-muted-foreground truncate"}>{selectedObj ? selectedObj.label : placeholder}</span>
+        <ChevronDown className="w-4 h-4 opacity-50 flex-shrink-0" />
+      </div>
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+          <div className="flex items-center px-3 border-b border-border bg-muted/20">
+            <Search className="w-3.5 h-3.5 text-muted-foreground mr-2" />
+            <input 
+              autoFocus
+              type="text" 
+              placeholder="Search..." 
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full py-2 bg-transparent text-sm outline-none"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filtered.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">No results found.</div>}
+            {filtered.map((o: any) => (
+              <div 
+                key={o.value} 
+                className="p-2.5 px-3 text-sm hover:bg-muted/50 cursor-pointer flex justify-between items-center transition-colors"
+                onClick={() => { onChange(o.value); setIsOpen(false); setSearch(""); }}
+              >
+                <span className="truncate pr-4">{o.label}</span>
+                {String(value) === String(o.value) && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -271,22 +330,28 @@ export default function AdminCourses() {
                 <form onSubmit={handleCreateOffering} className="space-y-4">
                   
                   <div><label className="text-xs font-semibold mb-1 block">Semester</label>
-                  <select required value={newOffering.semester_id} onChange={e=>setNewOffering({...newOffering, semester_id: e.target.value})} className="w-full border bg-background text-foreground rounded-lg p-2 text-sm">
-                    <option value="">Select Semester...</option>
-                    {semesters.map(s=><option key={s.semester_id} value={s.semester_id}>{s.name} {s.is_current ? '(Active)' : ''}</option>)}
-                  </select></div>
+                  <SearchableDropdown 
+                    placeholder="Select Semester..." 
+                    value={newOffering.semester_id} 
+                    onChange={(v: string) => setNewOffering({...newOffering, semester_id: v})} 
+                    options={semesters.map(s => ({ value: s.semester_id, label: `${s.name} ${s.is_current ? '(Active)' : ''}` }))} 
+                  /></div>
 
                   <div><label className="text-xs font-semibold mb-1 block">Course</label>
-                  <select required value={newOffering.course_id} onChange={e=>setNewOffering({...newOffering, course_id: e.target.value})} className="w-full border bg-background text-foreground rounded-lg p-2 text-sm">
-                    <option value="">Select Course...</option>
-                    {courses.map(c=><option key={c.course_id} value={c.course_id}>{c.course_id} - {c.course_name}</option>)}
-                  </select></div>
+                  <SearchableDropdown 
+                    placeholder="Select Course..." 
+                    value={newOffering.course_id} 
+                    onChange={(v: string) => setNewOffering({...newOffering, course_id: v})} 
+                    options={courses.map(c => ({ value: c.course_id, label: `${c.course_id} - ${c.course_name}` }))} 
+                  /></div>
 
                   <div><label className="text-xs font-semibold mb-1 block">Assign Teacher</label>
-                  <select required value={newOffering.teacher_id} onChange={e=>setNewOffering({...newOffering, teacher_id: e.target.value})} className="w-full border bg-background text-foreground rounded-lg p-2 text-sm">
-                    <option value="">Select Teacher...</option>
-                    {users.map(u=><option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
-                  </select></div>
+                  <SearchableDropdown 
+                    placeholder="Select Teacher..." 
+                    value={newOffering.teacher_id} 
+                    onChange={(v: string) => setNewOffering({...newOffering, teacher_id: v})} 
+                    options={users.map(u => ({ value: u.id, label: `${u.name} (${u.email})` }))} 
+                  /></div>
 
                   <div><label className="text-xs font-semibold mb-1 block">Max Capacity</label>
                   <input type="number" min="1" required value={newOffering.max_capacity} onChange={e=>setNewOffering({...newOffering, max_capacity: Number(e.target.value)})} className="w-full border rounded-lg p-2 text-sm" /></div>

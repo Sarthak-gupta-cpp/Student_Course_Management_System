@@ -7,6 +7,7 @@ export default function AdminGradesApproval() {
   const [loading, setLoading] = useState(true);
   const [offerings, setOfferings] = useState<any[]>([]);
   const [approving, setApproving] = useState<number | null>(null);
+  const [showOnlyChanged, setShowOnlyChanged] = useState(false);
 
   useEffect(() => {
     fetchPendingOfferings();
@@ -60,14 +61,20 @@ export default function AdminGradesApproval() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto">
       
-      <div className="flex items-center gap-4 mb-8">
-        <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-          <CheckSquare className="w-6 h-6" />
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center flex-shrink-0">
+            <CheckSquare className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Grades Approval</h1>
+            <p className="text-sm text-muted-foreground mt-1">Review finalized teacher grading submissions and release them to students.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">Grades Approval</h1>
-          <p className="text-sm text-muted-foreground mt-1">Review finalized teacher grading submissions and release them to students.</p>
-        </div>
+        <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer bg-muted/30 p-2.5 px-4 border border-border rounded-xl hover:bg-muted/60 transition-colors whitespace-nowrap">
+          <input type="checkbox" checked={showOnlyChanged} onChange={e => setShowOnlyChanged(e.target.checked)} className="w-4 h-4 accent-primary" />
+          Show Only Revisions
+        </label>
       </div>
 
       {offerings.length === 0 ? (
@@ -109,13 +116,23 @@ export default function AdminGradesApproval() {
                     <summary className="text-sm font-medium text-primary cursor-pointer hover:underline select-none">
                       View Individual Student Grades
                     </summary>
-                    <div className="mt-4 max-h-48 overflow-y-auto bg-muted/20 p-4 rounded-xl border border-border text-sm space-y-2">
-                      {offering.students.map((s: any) => (
-                        <div key={s.enrollment_id} className="flex justify-between items-center py-1 border-b border-border/50 last:border-0">
-                          <span className="text-muted-foreground">{s.student_name}</span>
-                          <span className="font-bold">{s.grade}</span>
+                    <div className="mt-4 max-h-60 overflow-y-auto bg-muted/20 p-4 rounded-xl border border-border text-sm space-y-2">
+                      {offering.students.filter((s:any) => showOnlyChanged ? s.proposed_grade : true).map((s: any) => (
+                        <div key={s.enrollment_id} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+                          <span className="text-muted-foreground font-medium">{s.student_name}</span>
+                          {s.proposed_grade ? (
+                             <div className="flex items-center gap-2">
+                               <span className="line-through text-red-500 opacity-60 font-semibold">{s.grade || 'N/A'}</span>
+                               <span className="text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">→ {s.proposed_grade}</span>
+                             </div>
+                          ) : (
+                             <span className="font-bold">{s.grade}</span>
+                          )}
                         </div>
                       ))}
+                      {offering.students.filter((s:any) => showOnlyChanged ? s.proposed_grade : true).length === 0 && (
+                        <div className="text-muted-foreground text-center italic py-2">No revisions found.</div>
+                      )}
                     </div>
                   </details>
                 </div>

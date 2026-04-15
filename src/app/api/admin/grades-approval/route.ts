@@ -14,7 +14,7 @@ export async function GET() {
     // 1. Fetch pending grades (submitted by teachers, not yet released)
     const query = `
       SELECT 
-        e.enrollment_id, e.grade, e.offering_id,
+        e.enrollment_id, e.grade, e.proposed_grade, e.offering_id,
         u.name as student_name, u.email as student_email,
         c.course_name, c.course_id,
         t.name as teacher_name
@@ -23,7 +23,7 @@ export async function GET() {
       JOIN course_offerings co ON e.offering_id = co.offering_id
       JOIN courses c ON co.course_id = c.course_id
       JOIN users t ON co.teacher_id = t.id
-      WHERE e.grade_submitted_to_admin = TRUE AND e.is_grade_released = FALSE
+      WHERE e.grade_submitted_to_admin = TRUE AND (e.is_grade_released = FALSE OR e.proposed_grade IS NOT NULL)
       ORDER BY co.offering_id ASC, u.name ASC;
     `;
 
@@ -45,7 +45,8 @@ export async function GET() {
         enrollment_id: curr.enrollment_id,
         student_name: curr.student_name,
         student_email: curr.student_email,
-        grade: curr.grade
+        grade: curr.grade,
+        proposed_grade: curr.proposed_grade
       });
       return acc;
     }, {});
@@ -72,16 +73,33 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Release all submitted grades for this offering
-    const [result] = await pool.query<any>(
-      "UPDATE enrollments SET is_grade_released = TRUE WHERE offering_id = ? AND grade_submitted_to_admin = TRUE AND is_grade_released = FALSE",
-      [offeringId]
-    );
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Released grades for ${result.affectedRows} students.` 
-    });
+    try {
+      // 1. apply proposed_grades
+      await connection.query(
+         "UPDATE enrollments SET grade = proposed_grade, proposed_grade = NULL, is_grade_released = TRUE WHERE offering_id = ? AND proposed_grade IS NOT NULL",
+         [offeringId]
+      );
+      
+      // 2. release initial grades
+      const [result] = await connection.query<any>(
+        "UPDATE enrollments SET is_grade_released = TRUE WHERE offering_id = ? AND grade_submitted_to_admin = TRUE AND is_grade_released = FALSE",
+        [offeringId]
+      );
+
+      await connection.commit();
+      return NextResponse.json({ 
+        success: true, 
+        message: `Released grades and approved revisions.` 
+      });
+    } catch(err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
 
   } catch (error) {
     console.error("Release grades error:", error);

@@ -1,12 +1,27 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import pool from "@/lib/db";
+import { generateContent } from "@/lib/groq";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+function getPromptForRole(role: string): string {
+  const baseRules = `Rules:
+1. Return ONLY a valid MySQL SELECT statement.
+2. NO markdown formatting. NO explanation. NO tags.
+3. Only use SELECT. Everything else is STRICTLY FORBIDDEN.
+4. You may filter, group, or average as needed.
+5. If calculating GPA or CGPA, you MUST use the following grade points: A=10, A-=9, B=8, B-=7, C=6, C-=5, D=4, E=2, NC=0.
+6. The formula for CGPA is SUM(grade_point * credits) / SUM(credits). ONLY include rows where grade IS NOT NULL.
+7. CRITICAL: You ONLY have access to the user's specific records. If the user asks a global question like 'how many total students exist in the DB', you MUST return the exact query: SELECT 'I only have access to your personal records.' AS error;`;
 
-const DB_SCHEMA_PROMPT = `
-You are an expert SQL assistant for a student course management system.
+  if (role === 'STUDENT') {
+    return `You are an expert SQL assistant for a student course management system.
 You MUST construct a valid MySQL SELECT statement based on the user's request.
-You have access to a single view called \`my_data\`. Do not use any other tables.
+You have access to a view called \`my_data\` and a table called \`system_settings\`. Do not use any other tables.
+
+The \`system_settings\` table contains exactly one row with the globally active system dates:
+- registration_start (datetime)
+- registration_end (datetime)
+- drop_start (datetime)
+- drop_end (datetime)
+- current_semester_id (int)
 
 The \`my_data\` view contains the following columns (all related to the specific student asking):
 - student_id (int)
@@ -19,42 +34,89 @@ The \`my_data\` view contains the following columns (all related to the specific
 - semester_name (string)
 - teacher_name (string)
 
-Rules:
-1. Return ONLY a valid MySQL SELECT statement.
-2. NO markdown formatting. NO explanation. NO tags.
-3. Only use SELECT.
-4. You may filter, group, or average as needed.
-
+${baseRules}
 Example request: What are my grades?
-Example response: SELECT course_name, grade FROM my_data WHERE grade IS NOT NULL;
-`;
+Example response: SELECT course_name, grade FROM my_data WHERE grade IS NOT NULL;`;
+  }
+  
+  if (role === 'TEACHER') {
+    return `You are an expert SQL assistant for a teacher course management system.
+You MUST construct a valid MySQL SELECT statement based on the user's request.
+You have access to a view called \`my_data\` and a table called \`system_settings\`. Do not use any other tables.
 
-export async function generateAndRunSQL(userQuery: string, studentId: string): Promise<string> {
-  const numericStudentId = parseInt(studentId, 10);
-  if (isNaN(numericStudentId)) {
-    throw new Error("Invalid student ID");
+The \`system_settings\` table contains system dates.
+
+The \`my_data\` view contains the following columns (all related to the specific teacher asking):
+- teacher_id (int)
+- course_id (string, e.g., 'CS F211')
+- course_name (string)
+- credits (int)
+- department (string)
+- semester_name (string)
+- max_capacity (int)
+- current_enrolled (int)
+
+${baseRules}
+Example request: What courses am I teaching?
+Example response: SELECT course_id, course_name, semester_name FROM my_data;`;
   }
 
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-  
+  // ADMIN
+  return `You are an expert SQL Admin assistant for a university database.
+You MUST construct a valid MySQL SELECT statement based on the user's request.
+You have full SELECT access to ALL the following generic tables and views:
+- users (id, email, name, role, google_id)
+- courses (course_id, course_name, credits, department)
+- semesters (semester_id, name, is_current, start_date, end_date)
+- course_offerings (offering_id, course_id, semester_id, teacher_id, max_capacity, current_enrolled)
+- enrollments (enrollment_id, student_id, offering_id, status, grade, proposed_grade, is_grade_released)
+- system_settings (id, registration_start, registration_end, drop_start, drop_end)
+
+${baseRules}
+Example request: How many users are registered?
+Example response: SELECT COUNT(*) FROM users;`;
+}
+
+export async function generateAndRunSQL(userQuery: string, userId: string, role: string): Promise<string> {
+  const numericUserId = parseInt(userId, 10);
+  if (isNaN(numericUserId)) {
+    throw new Error("Invalid user ID");
+  }
+
+  const DB_SCHEMA_PROMPT = getPromptForRole(role);
+
   // 1. Generate SQL
   const prompt = `${DB_SCHEMA_PROMPT}\n\nUser Request: ${userQuery}\nSQL Query:`;
-  const result = await model.generateContent(prompt);
-  let rawSql = result.response.text().trim();
+  let rawSql = await generateContent(prompt);
+  rawSql = rawSql.trim();
   
   rawSql = rawSql.replace(/```sql/ig, "").replace(/```/g, "").trim();
 
+  // Enforce rigid select
   if (!rawSql.toUpperCase().startsWith("SELECT")) {
-    return "I can only run SELECT queries on your data. Please ask a valid question about your courses and grades.";
+    return "I can only run SELECT queries on the database to protect data integrity. Please ask a valid reporting question.";
+  }
+
+  // Anti-corruption injection check
+  if (rawSql.toUpperCase().match(/\b(DROP|DELETE|UPDATE|INSERT|ALTER|TRUNCATE|GRANT|REVOKE)\b/)) {
+      return "I can only run SELECT queries on the database. Destructive queries are strictly forbidden.";
   }
 
   // 2. Validate and securely inject scope
-  // The LLM writes "FROM my_data". We replace 'my_data' with a dynamically filtered subquery.
-  // This guarantees that the user can only ever access rows associated with their own student_id.
-  const secureSql = rawSql.replace(
-      /\bmy_data\b/gi, 
-      `(SELECT * FROM student_dashboard_view WHERE student_id = ${numericStudentId}) AS my_data`
-  );
+  // If STUDENT or TEACHER, rigidly enforce subquery scoping.
+  let secureSql = rawSql;
+  if (role === 'STUDENT') {
+      secureSql = rawSql.replace(
+          /\bmy_data\b/gi, 
+          `(SELECT * FROM student_dashboard_view WHERE student_id = ${numericUserId}) AS my_data`
+      );
+  } else if (role === 'TEACHER') {
+      secureSql = rawSql.replace(
+          /\bmy_data\b/gi, 
+          `(SELECT * FROM teacher_dashboard_view WHERE teacher_id = ${numericUserId}) AS my_data`
+      );
+  }
+  // Admin is allowed to execute natural un-scoped queries directly against core tables
 
   // 3. Execute query safely
   let dbResults = [];
@@ -66,9 +128,9 @@ export async function generateAndRunSQL(userQuery: string, studentId: string): P
       return "I encountered an internal database language error while trying to fetch that. Could you ask in a different way?";
   }
 
-  // 4. Summarize answers back to the student
+  // 4. Summarize answers back to the user
   const summaryPrompt = `
-You are a helpful and friendly student advisor assistant. 
+You are a helpful and friendly university assistant. 
 Answer the user's question clearly and concisely based ONLY on the following Database Results.
 Do NOT mention the SQL query, database structure, or the word 'my_data'. Just give them the answer naturally.
 If the Database Results are empty [], you should naturally say you couldn't find any matching records.
@@ -80,8 +142,8 @@ Friendly Answer:
 `;
 
   try {
-      const summaryResponse = await model.generateContent(summaryPrompt);
-      return summaryResponse.response.text().trim();
+      const summaryResponse = await generateContent(summaryPrompt);
+      return summaryResponse.trim();
   } catch (err: any) {
       console.error("Summary error: ", err);
       // Fallback

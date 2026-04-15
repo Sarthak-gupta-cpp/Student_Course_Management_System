@@ -25,7 +25,7 @@ export default function TeacherGrading({ params }: { params: Promise<{ id: strin
           const initialGrades: Record<string, string> = {};
           let locked = false;
           json.students.forEach((s: any) => {
-            initialGrades[s.enrollment_id] = s.grade || "";
+            initialGrades[s.enrollment_id] = s.proposed_grade || s.grade || "";
             if (s.is_grade_released) locked = true;
           });
           setGrades(initialGrades);
@@ -95,14 +95,14 @@ export default function TeacherGrading({ params }: { params: Promise<{ id: strin
           <div className="flex gap-3 w-full md:w-auto">
             <button
               onClick={() => handleSave('DRAFT')}
-              disabled={isLocked || saving}
+              disabled={saving}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm font-semibold transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" /> Save Draft
             </button>
             <button
               onClick={() => handleSave('SUBMIT')}
-              disabled={isLocked || saving}
+              disabled={saving}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 text-sm font-semibold transition-colors disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -122,9 +122,9 @@ export default function TeacherGrading({ params }: { params: Promise<{ id: strin
         )}
 
         {isLocked && (
-          <div className="p-4 rounded-xl mb-6 bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-sm font-medium flex items-center gap-3">
-             <AlertTriangle className="w-5 h-5" />
-             Grades have been released to students by the Administration and are permanently locked.
+          <div className="p-4 rounded-xl mb-6 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm font-medium flex items-center gap-3">
+             <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+             Grades were previously released. Any new changes will be sent to the Administration as a Grade Revision Request.
           </div>
         )}
         
@@ -151,7 +151,7 @@ export default function TeacherGrading({ params }: { params: Promise<{ id: strin
                       <select
                         value={grades[s.enrollment_id] || ""}
                         onChange={(e) => setGrades({ ...grades, [s.enrollment_id]: e.target.value })}
-                        disabled={isLocked}
+                        disabled={saving}
                         className="w-full bg-background border border-border text-foreground text-sm rounded-lg focus:ring-primary focus:border-primary block p-2.5 disabled:opacity-50 appearance-none"
                       >
                         <option value="">Select Grade</option>

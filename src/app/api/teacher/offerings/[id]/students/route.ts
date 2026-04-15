@@ -31,7 +31,7 @@ export async function GET(
     // 2. Fetch enrolled students
     const query = `
       SELECT 
-        e.enrollment_id, e.status, e.grade, e.is_grade_released, e.grade_submitted_to_admin,
+        e.enrollment_id, e.status, e.grade, e.proposed_grade, e.is_grade_released, e.grade_submitted_to_admin,
         u.id as student_id, u.name as student_name, u.email as student_email, u.image as student_image
       FROM enrollments e
       JOIN users u ON e.student_id = u.id
@@ -86,23 +86,38 @@ export async function POST(
 
     const isSubmitted = action === 'SUBMIT';
 
-    // Verify no grades are already submitted and locked for this course
-    const [locked] = await connection.query<RowDataPacket[]>(
-      "SELECT 1 FROM enrollments WHERE offering_id = ? AND is_grade_released = TRUE LIMIT 1",
+    const [currentEnrollments] = await connection.query<RowDataPacket[]>(
+      "SELECT enrollment_id, is_grade_released, grade, proposed_grade FROM enrollments WHERE offering_id = ?",
       [offeringId]
     );
+    const enrollmentMap = new Map(currentEnrollments.map(e => [e.enrollment_id, e]));
 
-    if (locked.length > 0) {
-      await connection.rollback();
-      return NextResponse.json({ error: "Grades have already been released to students and cannot be modified" }, { status: 403 });
-    }
-
-    for (const [enrollmentId, grade] of Object.entries(grades)) {
-      if (typeof grade === 'string' && grade.trim() !== '') {
-        await connection.query(
-          "UPDATE enrollments SET grade = ?, grade_submitted_to_admin = ? WHERE enrollment_id = ? AND offering_id = ?",
-          [grade, isSubmitted, enrollmentId, offeringId]
-        );
+    for (const [enrollmentId, gradeStr] of Object.entries(grades)) {
+      if (typeof gradeStr === 'string' && gradeStr.trim() !== '') {
+        const eData = enrollmentMap.get(Number(enrollmentId));
+        if (!eData) continue;
+        
+        if (eData.is_grade_released) {
+          // It's released. Any new change goes to proposed_grade
+          if (gradeStr !== eData.grade) {
+             await connection.query(
+               "UPDATE enrollments SET proposed_grade = ?, grade_submitted_to_admin = ? WHERE enrollment_id = ?",
+               [gradeStr, isSubmitted, enrollmentId]
+             );
+          } else {
+             // If they set it back to the original grade, we can clear proposed_grade if we want, or just set it
+             await connection.query(
+               "UPDATE enrollments SET proposed_grade = NULL WHERE enrollment_id = ?",
+               [enrollmentId]
+             );
+          }
+        } else {
+          // Not released, normal update
+          await connection.query(
+            "UPDATE enrollments SET grade = ?, grade_submitted_to_admin = ? WHERE enrollment_id = ?",
+            [gradeStr, isSubmitted, enrollmentId]
+          );
+        }
       }
     }
 

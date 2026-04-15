@@ -136,8 +136,8 @@ export function ScheduleTimetable({ courses, className }: { courses: Course[], c
   return (
     <div className={cn("w-full overflow-x-auto bg-card rounded-2xl border border-border shadow-sm p-4", className)}>
       <div 
-        className="timetable-grid min-w-[800px] text-sm" 
-        style={{ '--slots': totalRows, gridTemplateColumns: `80px repeat(${DAYS.length}, 1fr)` } as any}
+        className="timetable-grid min-w-[500px] md:min-w-[600px] text-sm" 
+        style={{ '--slots': totalRows, gridTemplateColumns: `60px repeat(${DAYS.length}, 1fr)` } as any}
       >
         {/* Top-left empty corner */}
         <div className="border-b border-border p-2"></div>
@@ -153,8 +153,8 @@ export function ScheduleTimetable({ courses, className }: { courses: Course[], c
         {timeLabels.map((time, i) => (
           <div 
             key={time} 
-            className="text-right pr-4 text-xs font-medium text-muted-foreground border-r border-border"
-            style={{ gridColumn: 1, gridRow: i * 2 + 2, marginTop: '-8px' }}
+            className="text-right pr-2 md:pr-4 text-[10px] md:text-[11px] font-medium text-muted-foreground border-r border-border"
+            style={{ gridColumn: 1, gridRow: i * 2 + 2, marginTop: '-6px' }}
           >
             {time}
           </div>
@@ -164,7 +164,7 @@ export function ScheduleTimetable({ courses, className }: { courses: Course[], c
         {Array.from({ length: totalRows }).map((_, i) => (
           <div 
             key={`grid-line-${i}`}
-            className="border-b border-border/40 pointer-events-none"
+            className="border-b border-border/40 pointer-events-none min-h-[22px] md:min-h-[26px]"
             style={{ 
               gridColumn: `2 / span ${DAYS.length}`, 
               gridRow: i + 2 
@@ -189,7 +189,7 @@ export function ScheduleTimetable({ courses, className }: { courses: Course[], c
             <div 
               key={`slot-${idx}`}
               className={cn(
-                "m-0.5 rounded-lg border p-2 flex flex-col gap-1 overflow-hidden transition-all hover:shadow-md hover:z-30 animate-in fade-in zoom-in duration-300",
+                "m-0.5 rounded-md border py-1 px-1.5 flex flex-col gap-0 md:gap-0.5 overflow-hidden transition-all hover:shadow-md hover:z-30 animate-in fade-in zoom-in duration-300 leading-tight",
                 clashStyle
               )}
               style={{ 
@@ -197,13 +197,13 @@ export function ScheduleTimetable({ courses, className }: { courses: Course[], c
                 gridColumn: col
               }}
             >
-              <span className="font-bold text-[10px] md:text-xs truncate" title={course.course_id}>
+              <span className="font-bold text-[9px] md:text-[11px] truncate" title={course.course_id}>
                 {course.course_id}
               </span>
-              <span className="text-[9px] md:text-[10px] font-medium leading-tight truncate opacity-90" title={course.course_name}>
+              <span className="text-[8px] md:text-[9.5px] font-semibold truncate opacity-[0.85]" title={course.course_name}>
                 {course.course_name}
               </span>
-              <span className="mt-auto text-[9px] md:text-[10px] opacity-75 hidden sm:inline-flex items-center gap-1">
+              <span className="mt-auto text-[8px] md:text-[9px] opacity-75 hidden sm:inline-flex items-center gap-0.5 font-medium">
                 <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" />
                 {slot.start.slice(0,5)} - {slot.end.slice(0,5)}
               </span>

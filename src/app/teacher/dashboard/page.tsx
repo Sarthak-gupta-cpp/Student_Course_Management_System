@@ -16,7 +16,13 @@ export default function TeacherDashboard() {
     try {
       const res = await fetch("/api/teacher/offerings");
       const json = await res.json();
-      if (json.offerings) setOfferings(json.offerings);
+      if (json.offerings) {
+        const sorted = json.offerings.sort((a: any, b: any) => {
+          if (a.is_current === b.is_current) return 0;
+          return a.is_current ? -1 : 1;
+        });
+        setOfferings(sorted);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -53,7 +59,7 @@ export default function TeacherDashboard() {
           </div>
         ) : (
           offerings.map((offering) => (
-            <div key={offering.offering_id} className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:border-border/80 transition-all flex flex-col group">
+            <div key={offering.offering_id} className={`rounded-2xl border overflow-hidden hover:shadow-lg transition-all flex flex-col group ${offering.is_current ? 'bg-card border-border hover:border-border/80' : 'bg-muted/20 border-border/40 opacity-70 contrast-75 saturate-50'}`}>
               <div className="p-6 pb-4">
                 <div className="flex justify-between items-start mb-4">
                   <div>
