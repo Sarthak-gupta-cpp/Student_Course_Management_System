@@ -10,11 +10,6 @@ The Birla Institute of Technology and Science (BITS) Goa offers a comprehensive 
 - Minimum CGPA requirements may apply for certain courses
 - Prerequisite courses must be completed before registering for advanced subjects
 
-### Registration Timeline
-- **Pre-registration Period**: 2 weeks before semester start
-- **Add/Drop Period**: First 2 weeks of semester
-- **Late Registration**: Allowed with penalty fees up to 4 weeks
-
 ### Steps for Registration
 1. Login to the Student Information System (SIS)
 2. Select semester and academic year

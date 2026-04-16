@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic';
 // Intent Router
 async function determineIntent(message: string): Promise<'DATABASE' | 'DOCUMENT'> {
     const prompt = `
-Analyze the user's question. If the question requires fetching data from a database (such as information about users, students, courses, enrollments, capacity, schedules, grades, statistics, or settings), return EXACTLY one word: "DATABASE". 
-If it is a general knowledge question about the university's rules, grading guidelines, or static framework policies, return "DOCUMENT".
+Analyze the user's question. If the question requires fetching data from a database (such as information about users, students, courses, enrollments, capacity, schedules, grades, statistics, or system dates like registration/drop timings), return EXACTLY one word: "DATABASE". 
+If it is a general knowledge question about the university's rules, grading guidelines, fee structure, or static framework policies, return "DOCUMENT".
 
 User Question: ${message}
 `;
