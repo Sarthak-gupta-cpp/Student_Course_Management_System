@@ -3,13 +3,10 @@
 -- MySQL Schema (3NF Normalized)
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS course_management;
-USE course_management;
-
 -- ============================================================
 -- 1. Users Table
 -- ============================================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     email           VARCHAR(255) NOT NULL UNIQUE,
     name            VARCHAR(255) NOT NULL,
@@ -26,7 +23,7 @@ CREATE TABLE users (
 -- ============================================================
 -- 2. Courses Table
 -- ============================================================
-CREATE TABLE courses (
+CREATE TABLE IF NOT EXISTS courses (
     course_id       VARCHAR(20) PRIMARY KEY,          -- e.g., 'CS F211'
     course_name     VARCHAR(255) NOT NULL,
     credits         INT NOT NULL CHECK (credits > 0 AND credits <= 10),
@@ -39,7 +36,7 @@ CREATE TABLE courses (
 -- ============================================================
 -- 3. Semesters Table
 -- ============================================================
-CREATE TABLE semesters (
+CREATE TABLE IF NOT EXISTS semesters (
     semester_id     INT AUTO_INCREMENT PRIMARY KEY,
     name            VARCHAR(100) NOT NULL UNIQUE,     -- e.g., '2025 Spring'
     is_current      BOOLEAN NOT NULL DEFAULT FALSE,
@@ -54,7 +51,7 @@ CREATE TABLE semesters (
 -- 4. Course Offerings Table
 --    Links a course to a semester and a teacher
 -- ============================================================
-CREATE TABLE course_offerings (
+CREATE TABLE IF NOT EXISTS course_offerings (
     offering_id     INT AUTO_INCREMENT PRIMARY KEY,
     course_id       VARCHAR(20) NOT NULL,
     semester_id     INT NOT NULL,
@@ -76,7 +73,7 @@ CREATE TABLE course_offerings (
 -- 5. Time Slots Table
 --    Schedule entries for each course offering
 -- ============================================================
-CREATE TABLE time_slots (
+CREATE TABLE IF NOT EXISTS time_slots (
     slot_id         INT AUTO_INCREMENT PRIMARY KEY,
     offering_id     INT NOT NULL,
     day_of_week     ENUM('MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY') NOT NULL,
@@ -95,7 +92,7 @@ CREATE TABLE time_slots (
 -- 6. Enrollments Table
 --    Maps students to course offerings with grading
 -- ============================================================
-CREATE TABLE enrollments (
+CREATE TABLE IF NOT EXISTS enrollments (
     enrollment_id   INT AUTO_INCREMENT PRIMARY KEY,
     student_id      INT NOT NULL,
     offering_id     INT NOT NULL,
@@ -120,7 +117,7 @@ CREATE TABLE enrollments (
 -- 7. System Settings Table
 --    Global registration/drop window configuration
 -- ============================================================
-CREATE TABLE system_settings (
+CREATE TABLE IF NOT EXISTS system_settings (
     id                  INT PRIMARY KEY DEFAULT 1,
     registration_start  DATETIME DEFAULT NULL,
     registration_end    DATETIME DEFAULT NULL,
@@ -136,10 +133,10 @@ CREATE TABLE system_settings (
 -- ============================================================
 
 -- Insert default system settings row
-INSERT INTO system_settings (id) VALUES (1);
+INSERT IGNORE INTO system_settings (id) VALUES (1);
 
 -- Seed a master admin (update google_id and email after first Google sign-in)
-INSERT INTO users (email, name, role, google_id) VALUES ('sarthakgupta1303@gmail.com', 'Sarthak Gupta', 'ADMIN', '116034739564723755158');
+INSERT IGNORE INTO users (email, name, role, google_id) VALUES ('sarthakgupta1303@gmail.com', 'Sarthak Gupta', 'ADMIN', '116034739564723755158');
 
 -- ============================================================
 -- User-Defined Functions (UDF)

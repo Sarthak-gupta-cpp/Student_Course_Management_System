@@ -81,10 +81,20 @@ ${message}
     const responseText = await generateContent(prompt);
 
     return NextResponse.json({ reply: responseText });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Chat Error:", error);
+    
+    // Default error message
+    let errorMessage = "I'm having trouble connecting right now. Please try again later.";
+    
+    // Check for common API key exhaustion or rate limit indicators
+    const errorString = String(error).toLowerCase();
+    if (errorString.includes("quota") || errorString.includes("429") || errorString.includes("rate limit") || errorString.includes("exhausted")) {
+      errorMessage = "My API key quota has been exhausted. Please try again later or contact the administrator to update the API key.";
+    }
+
     return NextResponse.json(
-      { error: "Failed to generate response" },
+      { reply: errorMessage, error: "Failed to generate response" },
       { status: 500 }
     );
   }
