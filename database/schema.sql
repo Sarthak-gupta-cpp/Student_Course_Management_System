@@ -3,9 +3,6 @@
 -- MySQL Schema (3NF Normalized)
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS course_management;
-USE course_management;
-
 -- ============================================================
 -- 1. Users Table
 -- ============================================================
