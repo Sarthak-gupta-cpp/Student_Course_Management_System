@@ -117,11 +117,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 6. Increment current_enrolled count safely
-    await connection.query(
-      "UPDATE course_offerings SET current_enrolled = current_enrolled + 1 WHERE offering_id = ?",
-      [offeringId]
-    );
+    // 6. Manual update removed: current_enrolled capacity is now synchronously maintained by the trg_after_enrollment_insert & update triggers natively in the database.
 
     // Commit Transaction
     await connection.commit();

@@ -142,6 +142,69 @@ INSERT INTO system_settings (id) VALUES (1);
 INSERT INTO users (email, name, role, google_id) VALUES ('sarthakgupta1303@gmail.com', 'Sarthak Gupta', 'ADMIN', '116034739564723755158');
 
 -- ============================================================
+-- User-Defined Functions (UDF)
+-- ============================================================
+DELIMITER //
+DROP FUNCTION IF EXISTS fn_grade_point //
+CREATE FUNCTION fn_grade_point(grade_val VARCHAR(5)) RETURNS INT
+DETERMINISTIC
+BEGIN
+    RETURN CASE grade_val
+        WHEN 'A' THEN 10 WHEN 'A-' THEN 9 WHEN 'B' THEN 8
+        WHEN 'B-' THEN 7 WHEN 'C' THEN 6 WHEN 'C-' THEN 5
+        WHEN 'D' THEN 4 WHEN 'E' THEN 2 WHEN 'NC' THEN 0
+        ELSE 0 END;
+END //
+DELIMITER ;
+
+-- ============================================================
+-- Triggers
+-- ============================================================
+DELIMITER //
+
+DROP TRIGGER IF EXISTS trg_after_enrollment_insert //
+CREATE TRIGGER trg_after_enrollment_insert
+AFTER INSERT ON enrollments
+FOR EACH ROW
+BEGIN
+    IF NEW.status = 'ENROLLED' THEN
+        UPDATE course_offerings 
+        SET current_enrolled = current_enrolled + 1 
+        WHERE offering_id = NEW.offering_id;
+    END IF;
+END //
+
+DROP TRIGGER IF EXISTS trg_after_enrollment_update //
+CREATE TRIGGER trg_after_enrollment_update
+AFTER UPDATE ON enrollments
+FOR EACH ROW
+BEGIN
+    IF OLD.status != 'ENROLLED' AND NEW.status = 'ENROLLED' THEN
+        UPDATE course_offerings 
+        SET current_enrolled = current_enrolled + 1 
+        WHERE offering_id = NEW.offering_id;
+    ELSEIF OLD.status = 'ENROLLED' AND NEW.status != 'ENROLLED' THEN
+        UPDATE course_offerings 
+        SET current_enrolled = GREATEST(0, current_enrolled - 1) 
+        WHERE offering_id = NEW.offering_id;
+    END IF;
+END //
+
+DROP TRIGGER IF EXISTS trg_after_enrollment_delete //
+CREATE TRIGGER trg_after_enrollment_delete
+AFTER DELETE ON enrollments
+FOR EACH ROW
+BEGIN
+    IF OLD.status = 'ENROLLED' THEN
+        UPDATE course_offerings 
+        SET current_enrolled = GREATEST(0, current_enrolled - 1) 
+        WHERE offering_id = OLD.offering_id;
+    END IF;
+END //
+
+DELIMITER ;
+
+-- ============================================================
 -- Views
 -- ============================================================
 CREATE OR REPLACE VIEW student_dashboard_view AS 
@@ -149,6 +212,7 @@ SELECT
     e.student_id,
     e.status AS enrollment_status,
     e.grade,
+    fn_grade_point(e.grade) AS grade_points,
     c.course_id,
     c.course_name,
     c.credits,

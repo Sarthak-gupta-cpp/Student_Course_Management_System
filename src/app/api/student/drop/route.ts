@@ -55,11 +55,7 @@ export async function POST(req: Request) {
       [existingEnrollment[0].enrollment_id]
     );
 
-    // 4. Decrement course capacity
-    await connection.query(
-      "UPDATE course_offerings SET current_enrolled = GREATEST(0, current_enrolled - 1) WHERE offering_id = ?",
-      [offeringId]
-    );
+    // 4. Manual update removed: current_enrolled capacity is now synchronously maintained by the trg_after_enrollment_update natively in the database.
 
     await connection.commit();
     return NextResponse.json({ success: true, message: "Course dropped successfully" });

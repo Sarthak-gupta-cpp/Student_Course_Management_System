@@ -15,7 +15,7 @@ export async function GET() {
   try {
     const query = `
       SELECT 
-        e.enrollment_id, e.grade,
+        e.enrollment_id, e.grade, fn_grade_point(e.grade) AS grade_points,
         co.offering_id, co.semester_id,
         c.course_id, c.course_name, c.credits,
         s.name as semester_name
@@ -33,13 +33,8 @@ export async function GET() {
     let totalCredits = 0;
     let totalPoints = 0;
     
-    // Simplistic translation assuming letter grades A, A-, B, etc.
-    const gradePoints: Record<string, number> = {
-      'A': 10, 'A-': 9, 'B': 8, 'B-': 7, 'C': 6, 'C-': 5, 'D': 4, 'E': 2, 'NC': 0
-    };
-
     grades.forEach(g => {
-      const gpa = gradePoints[g.grade] || 0;
+      const gpa = g.grade_points || 0;
       totalCredits += g.credits;
       totalPoints += (gpa * g.credits);
     });
